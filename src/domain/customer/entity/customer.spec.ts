@@ -1,3 +1,9 @@
+import EventDispatcher from "../../@shared/event/event-dispatcher";
+import ChangeAddressEvent from "../event/change-address.event";
+import CustomerCreatedEvent from "../event/customer-created.event";
+import ChangeAddressHandler from "../event/handler/change-address.handler";
+import SendConsoleLogOneHandler from "../event/handler/send-console-log-one.handler";
+import SendConsoleLogTwoHandler from "../event/handler/send-console-log-two.handler";
 import Address from "../value-object/address";
 import Customer from "./customer";
 
@@ -59,5 +65,48 @@ describe("Customer unit tests", () => {
 
     customer.addRewardPoints(10);
     expect(customer.rewardPoints).toBe(20);
+  });
+
+  it("should notify all events when a customer is created", async () => {
+    const eventDispatcher = new EventDispatcher();
+    const handlerOne = new SendConsoleLogOneHandler();
+    const handlerTwo = new SendConsoleLogTwoHandler();
+    const spyEventHandlerOne = jest.spyOn(handlerOne, "handle");
+    const spyEventHandlerTwo = jest.spyOn(handlerTwo, "handle");
+    eventDispatcher.register(CustomerCreatedEvent.name, handlerOne);
+    eventDispatcher.register(CustomerCreatedEvent.name, handlerTwo);
+
+    const customer = Customer.create("123", "Customer 1");
+    const address = new Address("Street 1", 1, "Zipcode 1", "City 1");
+    customer.Address = address;
+    
+    const events = customer.getEventsByKey(CustomerCreatedEvent.name);
+    events.forEach(event => {
+      eventDispatcher.notify(event);
+    })
+
+    expect(spyEventHandlerOne).toHaveBeenCalled();
+    expect(spyEventHandlerTwo).toHaveBeenCalled();
+  });
+
+  it("should notify all events when a customer address is updated", async () => {
+    const eventDispatcher = new EventDispatcher();
+    const handler = new ChangeAddressHandler();
+    const spyEventHandler = jest.spyOn(handler, "handle");
+    eventDispatcher.register(ChangeAddressEvent.name, handler);
+
+    const customer = Customer.create("123", "Customer 1");
+    const address = new Address("Street 1", 1, "Zipcode 1", "City 1");
+    customer.Address = address;
+
+    const address2 = new Address("Street 2", 2, "Zipcode 2", "City 2");
+    customer.changeAddress(address2, true);
+    
+    const events = customer.getEventsByKey(ChangeAddressEvent.name);
+    events.forEach(event => {
+      eventDispatcher.notify(event);
+    })
+
+    expect(spyEventHandler).toHaveBeenCalled();
   });
 });
